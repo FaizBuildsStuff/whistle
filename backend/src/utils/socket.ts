@@ -90,7 +90,7 @@ export const initializeSocket = (httpServer: HttpServer) => {
           chat.lastMessageAt = new Date();
           await chat.save();
 
-          //populate the message and send it to the chat room
+          //populate the message and send it to the chat roomm
           await message.populate("sender", "name avatar");
 
           //emit to chat room (for users inside the chat)
@@ -107,15 +107,15 @@ export const initializeSocket = (httpServer: HttpServer) => {
     );
 
     //TODO: LATER
-    socket.on("typing", async (data) => {})
+    socket.on("typing", async (data) => {});
 
     socket.on("disconnect", () => {
       onlineUsers.delete(userId);
 
       //notify others that this current user is offline
       socket.broadcast.emit("user-offline", { userId });
-    })
+    });
   });
 
-  return io
+  return io;
 };

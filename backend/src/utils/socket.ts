@@ -5,10 +5,6 @@ import { Message } from "../models/Message";
 import { Chat } from "../models/Chat";
 import { User } from "../models/User";
 
-interface SocketWithUserId extends Socket {
-  userId: string;
-}
-
 //store online users in memory : userId -> socketId
 export const onlineUsers: Map<string, string> = new Map();
 
@@ -16,8 +12,8 @@ export const initializeSocket = (httpServer: HttpServer) => {
   const allowedOrigins = [
     "http://localhost:8081", // expo mobile
     "http://localhost:5173", // vite web dev
-    process.env.FRONTEND_URL as string, // production
-  ];
+    process.env.FRONTEND_URL, // production
+  ].filter(Boolean) as string[];
 
   const io = new SocketServer(httpServer, { cors: { origin: allowedOrigins } });
 
@@ -37,7 +33,7 @@ export const initializeSocket = (httpServer: HttpServer) => {
       const user = await User.findOne({ clerkId });
       if (!user) return next(new Error("User not found"));
 
-      (socket as SocketWithUserId).userId = user._id.toString();
+      socket.data.userId = user._id.toString();
 
       next();
     } catch (error: any) {
@@ -47,7 +43,7 @@ export const initializeSocket = (httpServer: HttpServer) => {
 
   //this "connection" event name is special and should be writting like this
   io.on("connection", (socket) => {
-    const userId = (socket as SocketWithUserId).userId;
+    const userId = socket.data.userId;
 
     socket.emit("online-users", { userIds: Array.from(onlineUsers.keys()) });
 
@@ -94,8 +90,8 @@ export const initializeSocket = (httpServer: HttpServer) => {
           chat.lastMessageAt = new Date();
           await chat.save();
 
-          //populate the message and send it to the chat room
-          await message.populate("sender", "name email avatar");
+          //populate the message and send it to the chat roomm
+          await message.populate("sender", "name avatar");
 
           //emit to chat room (for users inside the chat)
           io.to(`chat:${chatId}`).emit("new-message", message);
@@ -111,15 +107,15 @@ export const initializeSocket = (httpServer: HttpServer) => {
     );
 
     //TODO: LATER
-    socket.on("typing", async (data) => {})
+    socket.on("typing", async (data) => {});
 
     socket.on("disconnect", () => {
       onlineUsers.delete(userId);
 
       //notify others that this current user is offline
       socket.broadcast.emit("user-offline", { userId });
-    })
+    });
   });
 
-  return io
+  return io;
 };

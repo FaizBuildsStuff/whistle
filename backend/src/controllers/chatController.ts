@@ -1,6 +1,7 @@
 import type { AuthRequest } from "../middleware/auth";
 import type { Response, NextFunction } from "express";
 import { Chat } from "../models/Chat";
+import { Types } from "mongoose";
 
 export async function getChats(
   req: AuthRequest,
@@ -22,7 +23,7 @@ export async function getChats(
 
       return {
         _id: chat._id,
-        participant: otherParticipant,
+        participant: otherParticipant ?? null,
         lastMessage: chat.lastMessage,
         lastMessageAt: chat.lastMessageAt,
         createdAt: chat.createdAt,
@@ -43,7 +44,22 @@ export async function getOrCreateChat(
 ) {
   try {
     const userId = req.userId;
-    const { participantId } = req.params;
+    // in this the before code is : const { participantId } = req.params; | so i have changed it to: const participantId = req.params.participantId as string;
+    const participantId = req.params.participantId as string;
+
+    if (!participantId) {
+      res.status(400).json({ message: "Participant ID is required" });
+      return;
+    }
+
+    if (!Types.ObjectId.isValid(participantId)) {
+      return res.status(400).json({ message: "Invalid participant ID" });
+    }
+
+    if (userId === participantId) {
+      res.status(400).json({ message: "Cannot create chat with yourself" });
+      return;
+    }
 
     // check if chat already exists
     let chat = await Chat.findOne({
@@ -63,14 +79,14 @@ export async function getOrCreateChat(
     );
 
     res.json({
-        _id: chat._id,
-        participant: otherParticipant ?? null,
-        lastMessage: chat.lastMessage,
-        lastMessageAt: chat.lastMessageAt,
-        createdAt: chat.createdAt,
-    })
+      _id: chat._id,
+      participant: otherParticipant ?? null,
+      lastMessage: chat.lastMessage,
+      lastMessageAt: chat.lastMessageAt,
+      createdAt: chat.createdAt,
+    });
   } catch (error) {
-    res.status(500)
-    next(error)
+    res.status(500);
+    next(error);
   }
 }
